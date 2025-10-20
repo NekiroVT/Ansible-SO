@@ -1,0 +1,61 @@
+- name: Gestion de procesos y servicios (Lab)
+  hosts: ubuntu_servers
+  become: yes
+  vars:
+    # Ajusta la lista de servicios críticos para mis VMs
+    servicios_criticos:
+      - ssh
+      - cron
+      - NetworkManager
+  tasks:
+    - name: Obtener facts de servicios (systemd)
+      ansible.builtin.service_facts:
+
+    - name: Mostrar carga del sistema (uptime/load)
+      ansible.builtin.command: uptime
+      register: r_uptime
+      changed_when: false
+
+    - name: Top 5 procesos por CPU
+      ansible.builtin.command: bash -lc "ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 6"
+      register: r_topcpu
+      changed_when: false
+
+    - name: Top 5 procesos por MEMORIA
+      ansible.builtin.command: bash -lc "ps -eo pid,comm,%mem,%cpu --sort=-%mem | head -n 6"
+      register: r_topmem
+      changed_when: false
+
+    - name: Listar servicios criticos y su estado
+      ansible.builtin.debug:
+        msg: "{{ item }} -> {{ services['services'][item + '.service'].state | default('desconocido') }}"
+      loop: "{{ servicios_criticos }}"
+      vars:
+        services: "{{ ansible_facts }}"
+
+    - name: Asegurar que servicios criticos esten habilitados y activos
+      ansible.builtin.systemd_service:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      loop: "{{ servicios_criticos }}"
+
+    - name: Chequear si hay servicios fallados
+      ansible.builtin.command: systemctl --failed --no-legend
+      register: r_failed
+      failed_when: false
+      changed_when: false
+
+    - name: Reiniciar servicios fallados (si los hay)
+      ansible.builtin.shell: |
+        for s in $(systemctl --failed --no-legend | awk '{print $1}'); do
+          systemctl restart "$s" || true
+        done
+      when: r_failed.stdout | trim | length > 0
+
+    - name: Resumen legible (cpu/mem/uptime)
+      ansible.builtin.debug:
+        msg:
+          - "UPTIME: {{ r_uptime.stdout }}"
+          - "TOP CPU:\n{{ r_topcpu.stdout }}"
+          - "TOP MEM:\n{{ r_topmem.stdout }}"
