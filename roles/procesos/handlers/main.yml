@@ -1,0 +1,8 @@
+- name: restart journald
+  ansible.builtin.service:
+    name: systemd-journald
+    state: restarted
+
+- name: daemon-reload
+  ansible.builtin.command: systemctl daemon-reload
+  changed_when: true

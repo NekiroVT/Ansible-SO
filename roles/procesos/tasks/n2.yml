@@ -1,0 +1,26 @@
+- name: (N2) Estado actual de servicios críticos
+  ansible.builtin.debug:
+    msg: "{{ item }} -> {{ ansible_facts.services[item ~ '.service'].state | default('desconocido') }}"
+  loop: "{{ servicios_criticos }}"
+  tags: [procesos, servicios, n2]
+
+- name: (N2) Servicios fallados (systemctl --failed)
+  ansible.builtin.command: systemctl --failed --no-legend
+  register: r_failed
+  failed_when: false
+  changed_when: false
+  tags: [procesos, servicios, n2]
+
+- name: (N2) Últimos errores del journal (1h)
+  ansible.builtin.command: journalctl -p err --since "1 hour"
+  register: r_journal_err
+  failed_when: false
+  changed_when: false
+  tags: [procesos, observabilidad, n2]
+
+- name: (N2) Resumen N2
+  ansible.builtin.debug:
+    msg:
+      - "FAILED:\n{{ r_failed.stdout | default('') }}"
+      - "JOURNAL ERR(1h):\n{{ r_journal_err.stdout | default('') }}"
+  tags: [procesos, n2]

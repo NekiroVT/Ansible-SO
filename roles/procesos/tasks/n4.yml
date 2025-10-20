@@ -1,0 +1,53 @@
+# Optimización moderada y segura del journal
+- name: (N4) Configurar drop-in de journald
+  ansible.builtin.template:
+    src: journald-dropin.conf.j2
+    dest: /etc/systemd/journald.conf.d/99-procmon.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - restart journald
+  tags: [procesos, optimizacion, n4]
+
+# Opcional: timer de salud para generar latidos cada 2 min
+- name: (N4) Crear unidad oneshot para healthcheck (si habilitado)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/procmon-health.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Procmon Health Writer
+
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/bash -lc 'mkdir -p {{ procmon_logdir }} && date +%%s > {{ procmon_logdir }}/.health'
+  when: enable_health_timer
+  notify: daemon-reload
+  tags: [procesos, optimizacion, n4]
+
+- name: (N4) Crear timer cada 2 min (si habilitado)
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/procmon-health.timer
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Run procmon health each 2 minutes
+
+      [Timer]
+      OnUnitActiveSec=2min
+      Unit=procmon-health.service
+
+      [Install]
+      WantedBy=timers.target
+  when: enable_health_timer
+  notify: daemon-reload
+  tags: [procesos, optimizacion, n4]
+
+- name: (N4) Habilitar/arrancar timer (si habilitado)
+  ansible.builtin.systemd:
+    name: procmon-health.timer
+    state: started
+    enabled: true
+  when: enable_health_timer
+  tags: [procesos, optimizacion, n4]

@@ -1,0 +1,7 @@
+# Valores por defecto — pueden ser sobreescritos en group_vars/all.yml
+procesos_nivel: 1
+servicios_criticos: [ssh, cron, NetworkManager]
+procmon_logdir: /var/log/procmon
+journal_system_max: "200M"
+journal_runtime_max: "100M"
+enable_health_timer: false

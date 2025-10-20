@@ -1,0 +1,18 @@
+# Nivel de la rúbrica para "Gestión de procesos y servicios" (1..4)
+procesos_nivel: 4
+
+# Servicios críticos a observar/asegurar (puedes cambiar)
+servicios_criticos:
+  - ssh
+  - cron
+  - NetworkManager
+
+# Carpeta para logs/reports de este rol
+procmon_logdir: /var/log/procmon
+
+# Límite de journal (Nivel 4)
+journal_system_max: "200M"
+journal_runtime_max: "100M"
+
+# Habilitar timer de salud (Nivel 4)
+enable_health_timer: true

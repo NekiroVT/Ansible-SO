@@ -1,0 +1,35 @@
+- name: (N3) Asegurar activos y habilitados
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+  loop: "{{ servicios_criticos }}"
+  tags: [procesos, servicios, n3]
+
+- name: (N3) Copiar script de reinicio de fallados
+  ansible.builtin.copy:
+    src: scripts/restart_failed_services.sh
+    dest: /usr/local/sbin/restart_failed_services.sh
+    owner: root
+    group: root
+    mode: "0755"
+  tags: [procesos, n3]
+
+- name: (N3) Ejecutar reinicio de fallados (si existieran)
+  ansible.builtin.command: /usr/local/sbin/restart_failed_services.sh
+  register: r_fix
+  failed_when: false
+  changed_when: "'Restarted:' in r_fix.stdout"
+  tags: [procesos, n3]
+
+- name: (N3) Guardar snapshot de top en {{ procmon_logdir }}
+  ansible.builtin.copy:
+    src: scripts/top_snapshot.sh
+    dest: /usr/local/sbin/top_snapshot.sh
+    mode: "0755"
+  tags: [procesos, observabilidad, n3]
+
+- name: (N3) Ejecutar snapshot top (one-shot)
+  ansible.builtin.command: "/usr/local/sbin/top_snapshot.sh {{ procmon_logdir }}"
+  changed_when: false
+  tags: [procesos, observabilidad, n3]

@@ -1,0 +1,36 @@
+- name: (N1) Uptime y carga
+  ansible.builtin.command: uptime
+  register: r_uptime
+  changed_when: false
+  tags: [procesos, observabilidad, n1]
+
+- name: (N1) Top 5 por CPU
+  ansible.builtin.command: bash -lc "ps -eo pid,comm,%cpu,%mem --sort=-%cpu | head -n 6"
+  register: r_topcpu
+  changed_when: false
+  tags: [procesos, observabilidad, n1]
+
+- name: (N1) Top 5 por MEM
+  ansible.builtin.command: bash -lc "ps -eo pid,comm,%mem,%cpu --sort=-%mem | head -n 6"
+  register: r_topmem
+  changed_when: false
+  tags: [procesos, observabilidad, n1]
+
+- name: (N1) vmstat/iostat (rápido)
+  ansible.builtin.shell: |
+    echo "===== vmstat (1s x 2) ====="
+    vmstat 1 2
+    echo "===== iostat (1s x 2) ====="
+    iostat 1 2
+  register: r_sys
+  changed_when: false
+  tags: [procesos, observabilidad, n1]
+
+- name: (N1) Resumen legible
+  ansible.builtin.debug:
+    msg:
+      - "UPTIME: {{ r_uptime.stdout }}"
+      - "TOP CPU:\n{{ r_topcpu.stdout }}"
+      - "TOP MEM:\n{{ r_topmem.stdout }}"
+      - "SISTEMA:\n{{ r_sys.stdout }}"
+  tags: [procesos, n1]

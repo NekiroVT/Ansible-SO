@@ -1,0 +1,6 @@
+- name: Unidad 2 — Gestión de procesos y servicios
+  hosts: ubuntu_servers
+  become: yes
+
+  roles:
+    - { role: procesos, tags: ['procesos'] }

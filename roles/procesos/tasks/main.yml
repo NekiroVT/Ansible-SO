@@ -1,0 +1,42 @@
+# Paquetes útiles para observabilidad sin ser intrusivos
+- name: Asegurar utilidades básicas (vmstat, iostat, pstree, etc.)
+  ansible.builtin.package:
+    name:
+      - procps           # ps, top
+      - psmisc           # pstree, killall
+      - sysstat          # iostat, mpstat, sar
+      - util-linux       # uptime, lsblk, etc.
+  state: present
+  tags: [procesos, paquetes]
+
+# Recolectar facts de servicios
+- name: Recolectar service_facts (systemd)
+  ansible.builtin.service_facts:
+  tags: [procesos, facts]
+
+# Crear carpeta de logs/reportes
+- name: Crear {{ procmon_logdir }}
+  ansible.builtin.file:
+    path: "{{ procmon_logdir }}"
+    state: directory
+    owner: root
+    group: adm
+    mode: "0750"
+  tags: [procesos, observabilidad]
+
+# Incluir tareas por nivel de la rúbrica
+- name: Nivel 1
+  ansible.builtin.include_tasks: n1.yml
+  when: procesos_nivel | int >= 1
+
+- name: Nivel 2
+  ansible.builtin.include_tasks: n2.yml
+  when: procesos_nivel | int >= 2
+
+- name: Nivel 3
+  ansible.builtin.include_tasks: n3.yml
+  when: procesos_nivel | int >= 3
+
+- name: Nivel 4
+  ansible.builtin.include_tasks: n4.yml
+  when: procesos_nivel | int >= 4
