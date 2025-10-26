@@ -1,0 +1,54 @@
+# Nivel 3: Varias programaciones funcionales
+
+- name: Asegurar cron instalado y activo
+  ansible.builtin.package:
+    name: cron
+    state: present
+- name: Habilitar y arrancar cron
+  ansible.builtin.service:
+    name: cron
+    enabled: true
+    state: started
+
+- name: Cron horaria (00 de cada hora)
+  ansible.builtin.cron:
+    name: "demo_horaria"
+    user: root
+    minute: "0"
+    job: 'echo "OK hora $(date)" >> /var/log/cron_demo_hora.log'
+
+- name: Cron diaria (02:00)
+  ansible.builtin.cron:
+    name: "demo_diaria"
+    user: root
+    minute: "0"
+    hour: "2"
+    job: 'echo "backup simulado $(date)" >> /var/log/cron_demo_diario.log'
+
+- name: Cron semanal (dom 03:30)
+  ansible.builtin.cron:
+    name: "demo_semanal"
+    user: root
+    minute: "30"
+    hour: "3"
+    weekday: "Sun"
+    job: 'echo "limpieza semanal $(date)" >> /var/log/cron_demo_semanal.log'
+
+- name: Mostrar crontab
+  ansible.builtin.shell: crontab -l
+  register: crontab_root
+  changed_when: false
+
+- name: Guardar evidencia Nivel 3
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/auto_nivel3.txt
+    content: |
+      ### Evidencia Nivel 3 - Automatización ###
+      Tareas creadas:
+        - demo_horaria   (0 * * * *)   -> cron_demo_hora.log
+        - demo_diaria    (0 2 * * *)   -> cron_demo_diario.log
+        - demo_semanal   (30 3 Sun)    -> cron_demo_semanal.log
+
+      --- crontab (root) ---
+      {{ crontab_root.stdout }}

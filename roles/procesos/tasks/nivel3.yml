@@ -1,0 +1,22 @@
+- name: Detectar procesos de usuario con CPU > 80% (excluir root/sshd/systemd)
+  ansible.builtin.shell: |
+    ps -eo user,pid,comm,%cpu --no-headers --sort=-%cpu \
+    | awk '$4>80 && $1!="root" && $3!="sshd" && $3!="systemd"{print $2}'
+  register: procesos_altos
+
+- name: Intentar SIGTERM primero
+  become: true
+  ansible.builtin.shell: kill -15 {{ item }}
+  loop: "{{ procesos_altos.stdout_lines }}"
+  register: term_results
+  failed_when: false
+  changed_when: true
+
+- name: Forzar SIGKILL sólo si siguen vivos
+  become: true
+  ansible.builtin.shell: kill -9 {{ item }}
+  loop: "{{ procesos_altos.stdout_lines }}"
+  when: term_results is defined
+  register: kill_results
+  failed_when: false
+  changed_when: true

@@ -1,0 +1,83 @@
+# Nivel 3: Organización funcional + persistencia en fstab
+
+- name: Crear directorios base
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /data, mode: '0755' }
+    - { path: /data/app, mode: '0750' }
+    - { path: /data/logs, mode: '0750' }
+    - { path: /data/backup, mode: '0700' }
+
+- name: Crear imagen para /data/app (200MB)
+  become: true
+  ansible.builtin.shell: fallocate -l 200M /opt/data_app.img || dd if=/dev/zero of=/opt/data_app.img bs=1M count=200
+  args: { creates: /opt/data_app.img }
+
+- name: Asociar loop device (app)
+  become: true
+  ansible.builtin.shell: losetup -f --show /opt/data_app.img
+  register: r_loop_app
+  changed_when: "'/dev/loop' in r_loop_app.stdout"
+
+- name: Formatear ext4 y etiquetar
+  become: true
+  ansible.builtin.shell: |
+    blkid -o value -s TYPE {{ r_loop_app.stdout | trim }} || mkfs.ext4 -F {{ r_loop_app.stdout | trim }}
+    tune2fs -L DATA_APP {{ r_loop_app.stdout | trim }}
+  register: r_fslabel
+  changed_when: true
+
+- name: Obtener UUID
+  become: true
+  ansible.builtin.shell: blkid -o value -s UUID {{ r_loop_app.stdout | trim }}
+  register: r_uuid
+  changed_when: false
+
+- name: Añadir entrada a /etc/fstab (por UUID)
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    regexp: "^UUID={{ r_uuid.stdout | trim }}\\s+/data/app\\s+ext4\\s+"
+    line: "UUID={{ r_uuid.stdout | trim }}  /data/app  ext4  defaults,noatime  0  2"
+    create: yes
+    backup: yes
+
+- name: Montar /data/app (persistente)
+  become: true
+  ansible.builtin.mount:
+    path: /data/app
+    src: "UUID={{ r_uuid.stdout | trim }}"
+    fstype: ext4
+    state: mounted
+
+- name: Permisos finales
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: /data/app,    mode: '0750' }
+    - { path: /data/logs,   mode: '0750' }
+    - { path: /data/backup, mode: '0700' }
+
+- name: df de /data/app
+  ansible.builtin.shell: df -h /data/app
+  register: r_df_app
+  changed_when: false
+
+- name: Evidencia Nivel 3
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/alm_nivel3.txt
+    content: |
+      ### Evidencia Nivel 3 - Organización funcional ###
+      UUID: {{ r_uuid.stdout | trim }}
+      Montaje: /data/app (persistente en /etc/fstab)
+      df -h /data/app:
+      {{ r_df_app.stdout }}

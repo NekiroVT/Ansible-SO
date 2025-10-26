@@ -1,0 +1,84 @@
+# Nivel 4: Controlar y optimizar servicios (impone estado y resume KPIs)
+
+- name: Cargar variables del grupo
+  ansible.builtin.include_vars:
+    file: "../../group_vars/laboratorio_academico.yml"
+
+- name: Recopilar estado inicial
+  ansible.builtin.service_facts:
+
+# 1) construir sv_iniciales
+- name: Construir lista inicial de servicios (name/state/enabled)
+  ansible.builtin.set_fact:
+    sv_iniciales: >-
+      {{
+        ansible_facts.services | dict2items
+        | json_query('[].{name: key, state: value.state, enabled: value.status}')
+      }}
+
+# 2) calcular KPI inicial usando sv_iniciales (ya definida)
+- name: KPIs iniciales
+  ansible.builtin.set_fact:
+    kpi_inicial:
+      total: "{{ (ansible_facts.services | length) }}"
+      running: "{{ (sv_iniciales | selectattr('state','eq','running') | list | length) }}"
+      stopped: "{{ (sv_iniciales | selectattr('state','ne','running') | list | length) }}"
+      enabled: "{{ (sv_iniciales | selectattr('enabled','eq','enabled') | list | length) }}"
+
+# Impone baseline (controla)
+- name: Asegurar estado/enable deseado
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item.nombre }}"
+    state: "{{ 'started' if item.estado == 'iniciado' else 'stopped' }}"
+    enabled: "{{ item.habilitado | bool }}"
+  loop: "{{ servicios_basicos | default([]) }}"
+  register: enforce
+  failed_when: false
+
+- name: Recopilar estado final
+  ansible.builtin.service_facts:
+
+# 3) construir sv_finales
+- name: Construir lista final de servicios (name/state/enabled)
+  ansible.builtin.set_fact:
+    sv_finales: >-
+      {{
+        ansible_facts.services | dict2items
+        | json_query('[].{name: key, state: value.state, enabled: value.status}')
+      }}
+
+# 4) KPIs finales + deltas
+- name: KPIs finales y delta
+  ansible.builtin.set_fact:
+    kpi_final:
+      total: "{{ (ansible_facts.services | length) }}"
+      running: "{{ (sv_finales | selectattr('state','eq','running') | list | length) }}"
+      stopped: "{{ (sv_finales | selectattr('state','ne','running') | list | length) }}"
+      enabled: "{{ (sv_finales | selectattr('enabled','eq','enabled') | list | length) }}"
+    cambios_aplicados: >-
+      {{
+        (enforce.results | default([]))
+        | selectattr('changed','defined')
+        | selectattr('changed','eq', true)
+        | map(attribute='name') | list
+      }}
+    servicios_no_running: >-
+      {{
+        sv_finales | selectattr('state','ne','running') | map(attribute='name') | list
+      }}
+
+- name: Guardar reporte nivel 4 (control + KPIs + delta)
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/servicios_nivel4.json
+    content: |
+      {
+        "host": "{{ inventory_hostname }}",
+        "fecha": "{{ ansible_date_time.date }} {{ ansible_date_time.time }}",
+        "baseline_deseada": {{ servicios_basicos | to_nice_json }},
+        "kpi_inicial": {{ kpi_inicial | to_nice_json }},
+        "kpi_final": {{ kpi_final | to_nice_json }},
+        "cambios_aplicados": {{ cambios_aplicados | to_nice_json }},
+        "servicios_no_running": {{ servicios_no_running | to_nice_json }}
+      }

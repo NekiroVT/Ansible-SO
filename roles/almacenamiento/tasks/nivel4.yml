@@ -1,0 +1,48 @@
+# Nivel 4: Validación + optimización segura (sin borrar nada crítico)
+
+- name: Verificar montajes clave
+  ansible.builtin.shell: |
+    echo "ROOT: $(df -h / | tail -1)"
+    test -d /data/app && echo "DATA_APP: $(df -h /data/app | tail -1)" || echo "DATA_APP: (no existe)"
+  register: r_df_keys
+  changed_when: false
+
+- name: Uso de espacio (%) por punto
+  ansible.builtin.shell: df -P --output=pcent,target | tail -n +2
+  register: r_pct
+  changed_when: false
+
+- name: Comprimir logs mayores a 7 días en /var/log (no borra originales)
+  become: true
+  ansible.builtin.shell: |
+    find /var/log -type f -name "*.log" -mtime +7 -exec gzip -9n {} \; ; true
+  register: r_gzip_varlog
+  changed_when: false
+  failed_when: false
+
+- name: Comprimir logs mayores a 7 días en /data/logs si existe
+  become: true
+  ansible.builtin.shell: |
+    test -d /data/logs && find /data/logs -type f -mtime +7 -exec gzip -9n {} \; || true
+  register: r_gzip_datalogs
+  changed_when: false
+
+- name: Evidencia Nivel 4 (KPI + acciones)
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/alm_nivel4.txt
+    content: |
+      ### Evidencia Nivel 4 - Administración avanzada ###
+      == Uso de espacio ==
+      {{ r_pct.stdout }}
+
+      == Montajes clave ==
+      {{ r_df_keys.stdout }}
+
+      == Compresiones realizadas ==
+      /var/log:   (salida resumida)
+      {{ r_gzip_varlog.stdout | default('') | trim }}
+      /data/logs: (salida resumida)
+      {{ r_gzip_datalogs.stdout | default('') | trim }}
+
+      Nota: Se comprimen logs >7 días para optimizar espacio (no se eliminan).

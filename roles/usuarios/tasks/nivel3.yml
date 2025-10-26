@@ -1,0 +1,36 @@
+# Nivel 3: Administrar usuarios y grupos correctamente
+
+- name: Crear grupo administrativo
+  become: true
+  ansible.builtin.group:
+    name: admin_team
+    state: present
+
+- name: Crear usuarios con asignación de grupo y shell
+  become: true
+  ansible.builtin.user:
+    name: "{{ item.nombre }}"
+    groups: admin_team
+    shell: /bin/bash
+    state: present
+  loop:
+    - { nombre: 'juan' }
+    - { nombre: 'maria' }
+
+- name: Asignar permisos en /var/log restringidos al grupo
+  become: true
+  ansible.builtin.file:
+    path: /var/log
+    owner: root
+    group: admin_team
+    mode: '0750'
+
+- name: Guardar evidencia del nivel 3
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/usuarios_nivel3.txt
+    content: |
+      ### Evidencia Nivel 3 - Gestión correcta ###
+      Grupo creado: admin_team
+      Usuarios: juan, maria
+      Permisos aplicados en /var/log (0750)

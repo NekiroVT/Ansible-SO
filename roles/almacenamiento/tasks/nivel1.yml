@@ -1,0 +1,40 @@
+# Nivel 1: Observa el estado actual (no cambia nada)
+
+- name: lsblk (árbol de dispositivos y FS)
+  ansible.builtin.shell: lsblk -f
+  register: r_lsblk
+  changed_when: false
+
+- name: df -hT (uso de espacio)
+  ansible.builtin.shell: df -hT
+  register: r_df
+  changed_when: false
+
+- name: Montajes actuales
+  ansible.builtin.shell: mount | column -t
+  register: r_mount
+  changed_when: false
+
+- name: fstab actual
+  ansible.builtin.shell: cat /etc/fstab
+  register: r_fstab
+  changed_when: false
+  failed_when: false
+
+- name: Guardar evidencia Nivel 1
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/alm_nivel1.txt
+    content: |
+      ### Evidencia Nivel 1 - Almacenamiento ###
+      == lsblk ==
+      {{ r_lsblk.stdout }}
+
+      == df -hT ==
+      {{ r_df.stdout }}
+
+      == mount ==
+      {{ r_mount.stdout }}
+
+      == /etc/fstab ==
+      {{ r_fstab.stdout }}

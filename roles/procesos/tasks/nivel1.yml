@@ -1,0 +1,20 @@
+# Nivel 1: Ver procesos y uso general del sistema
+- name: Mostrar los procesos con más uso de memoria
+  ansible.builtin.shell: ps aux --sort=-%mem | head -n {{ procesos_a_mostrar | default(10) }}
+  register: salida_ps
+
+- name: Guardar listado de procesos
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/procesos_nivel1.txt
+    content: "{{ salida_ps.stdout }}\n"
+
+- name: Mostrar uso general del sistema (top)
+  ansible.builtin.shell: top -b -n1 | head -n 20
+  register: salida_top
+
+- name: Guardar top en log
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/top_nivel1.txt
+    content: "{{ salida_top.stdout }}\n"

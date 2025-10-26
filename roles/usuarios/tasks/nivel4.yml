@@ -1,0 +1,42 @@
+# Nivel 4: Definir políticas seguras y restricciones claras
+
+- name: Crear grupo de administradores seguros
+  become: true
+  ansible.builtin.group:
+    name: secure_admins
+    state: present
+
+- name: Crear usuario con políticas seguras
+  become: true
+  ansible.builtin.user:
+    name: seguridad
+    shell: /bin/bash
+    groups: secure_admins
+    password: "{{ 'Seguridad123' | password_hash('sha512') }}"
+    state: present
+
+- name: Configurar sudoers para acceso restringido
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/seguridad
+    content: "seguridad ALL=(ALL) /usr/bin/systemctl, /usr/bin/journalctl\n"
+    mode: '0440'
+
+- name: Restringir acceso SSH a secure_admins solamente
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^AllowGroups'
+    line: 'AllowGroups secure_admins'
+  notify: Reiniciar SSH
+
+- name: Guardar evidencia del nivel 4
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/usuarios_nivel4.txt
+    content: |
+      ### Evidencia Nivel 4 - Políticas seguras ###
+      Grupo seguro: secure_admins
+      Usuario: seguridad (con contraseña cifrada)
+      Acceso SSH restringido a secure_admins
+      Sudoers limitado a systemctl y journalctl

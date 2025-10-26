@@ -1,0 +1,10 @@
+# Nivel 1: Mostrar información básica de usuarios
+- name: Listar todos los usuarios del sistema
+  ansible.builtin.shell: cat /etc/passwd
+  register: usuarios_lista
+
+- name: Guardar listado de usuarios
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/usuarios_nivel1.txt
+    content: "{{ usuarios_lista.stdout }}"

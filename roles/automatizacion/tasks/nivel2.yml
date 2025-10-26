@@ -1,0 +1,36 @@
+# Nivel 2: Tarea básica con cron
+
+- name: Asegurar paquete cron instalado
+  ansible.builtin.package:
+    name: cron
+    state: present
+
+- name: Asegurar servicio cron activo
+  ansible.builtin.service:
+    name: cron
+    enabled: true
+    state: started
+
+- name: Crear cron básico (cada minuto escribe la fecha)
+  ansible.builtin.cron:
+    name: "demo_minuto"
+    user: root
+    minute: "*"
+    job: "date >> /var/log/cron_demo_minuto.log"
+
+- name: Mostrar crontab de root
+  ansible.builtin.shell: crontab -l
+  register: crontab_root
+  changed_when: false
+
+- name: Guardar evidencia Nivel 2
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/auto_nivel2.txt
+    content: |
+      ### Evidencia Nivel 2 - Automatización ###
+      Cron creado: demo_minuto  (* * * * *)
+      Acción: date >> /var/log/cron_demo_minuto.log
+
+      --- crontab (root) ---
+      {{ crontab_root.stdout }}

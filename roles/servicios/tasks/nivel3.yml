@@ -1,0 +1,63 @@
+# Nivel 3: Reiniciar servicios caídos y guardar evidencia
+
+- name: Cargar variables del grupo laboratorio_academico
+  ansible.builtin.include_vars:
+    file: "../../group_vars/laboratorio_academico.yml"
+
+- name: Recopilar facts de servicios
+  ansible.builtin.service_facts:
+
+- name: Construir lista de servicios caídos
+  ansible.builtin.set_fact:
+    servicios_caidos: >-
+      {{
+        (servicios_caidos | default([])) + [ item.nombre ]
+      }}
+  loop: "{{ servicios_basicos | default([]) }}"
+  when: (ansible_facts.services.get(item.nombre + '.service', {}).state
+         | default('desconocido')) != 'running'
+
+- name: Iniciar servicios caídos
+  become: true
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+  loop: "{{ servicios_caidos | default([]) }}"
+  register: arranque
+  failed_when: false
+
+- name: Construir lista de servicios reiniciados
+  ansible.builtin.set_fact:
+    servicios_reiniciados: >-
+      {{
+        (arranque.results | default([]))
+        | selectattr('changed','defined')
+        | selectattr('changed','eq', true)
+        | map(attribute='item')
+        | list
+      }}
+
+- name: Guardar evidencia nivel 3 de servicios
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/servicios_nivel3.txt
+    content: |
+      ### Evidencia Nivel 3 - Gestión de Servicios ###
+      Fecha: {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+      Host:  {{ inventory_hostname }}
+
+      Servicios solicitados: {{ (servicios_basicos | default([]) | map(attribute='nombre') | list) | join(', ') }}
+
+      Detectados como caídos ({{ servicios_caidos | default([]) | length }}):
+      {% if (servicios_caidos | default([]) | length) > 0 -%}
+      {{ servicios_caidos | join(', ') }}
+      {%- else -%}
+      Ninguno
+      {%- endif %}
+
+      Reiniciados ({{ servicios_reiniciados | default([]) | length }}):
+      {% if (servicios_reiniciados | default([]) | length) > 0 -%}
+      {{ servicios_reiniciados | join(', ') }}
+      {%- else -%}
+      Ninguno (o ya estaban ejecutándose)
+      {%- endif %}

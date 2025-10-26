@@ -1,0 +1,41 @@
+# Nivel 1: Sin scripts ni planificación (solo evidencia)
+
+- name: Ver estado del servicio cron
+  ansible.builtin.shell: |
+    systemctl is-enabled cron 2>/dev/null || systemctl is-enabled crond 2>/dev/null || echo "desconocido"
+  register: cron_enabled
+  changed_when: false
+
+- name: Ver si cron está corriendo
+  ansible.builtin.shell: |
+    systemctl is-active cron 2>/dev/null || systemctl is-active crond 2>/dev/null || echo "inactivo"
+  register: cron_active
+  changed_when: false
+
+- name: Listar crontab del usuario root
+  ansible.builtin.shell: crontab -l 2>/dev/null || echo "Sin crontab para root"
+  register: crontab_root
+  changed_when: false
+
+- name: Listar contenidos de /etc/cron.*
+  ansible.builtin.shell: |
+    for d in /etc/cron.hourly /etc/cron.daily /etc/cron.weekly /etc/cron.monthly; do
+      echo "== $d =="; ls -1 "$d" 2>/dev/null || echo "(no existe)";
+    done
+  register: cron_dirs
+  changed_when: false
+
+- name: Guardar evidencia Nivel 1 (cron)
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/auto_nivel1.txt
+    content: |
+      ### Evidencia Nivel 1 - Automatización ###
+      Servicio cron habilitado: {{ cron_enabled.stdout }}
+      Servicio cron activo:     {{ cron_active.stdout }}
+
+      --- crontab (root) ---
+      {{ crontab_root.stdout }}
+
+      --- /etc/cron.* ---
+      {{ cron_dirs.stdout }}

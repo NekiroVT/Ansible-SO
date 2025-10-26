@@ -1,0 +1,25 @@
+# Nivel 2: Crear y eliminar usuarios básicos sin validación
+
+- name: Crear usuarios de prueba
+  become: true
+  ansible.builtin.user:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - testuser1
+    - testuser2
+
+- name: Eliminar usuario de prueba viejo
+  become: true
+  ansible.builtin.user:
+    name: olduser
+    state: absent
+
+- name: Guardar evidencia del manejo básico
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/usuarios_nivel2.txt
+    content: |
+      ### Evidencia Nivel 2 - Manejo básico ###
+      Usuarios creados: testuser1, testuser2
+      Usuario eliminado: olduser

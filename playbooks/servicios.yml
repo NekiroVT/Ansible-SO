@@ -1,0 +1,8 @@
+- hosts: all
+  become: true
+  vars:
+    nivel_actual: 1
+  tasks:
+    - include_role:
+        name: servicios
+        tasks_from: "nivel{{ nivel_actual }}"

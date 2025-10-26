@@ -1,0 +1,73 @@
+# Nivel 4: Automatización robusta y validada
+
+- name: Asegurar cron instalado y activo
+  ansible.builtin.package:
+    name: cron
+    state: present
+- name: Habilitar y arrancar cron
+  ansible.builtin.service:
+    name: cron
+    enabled: true
+    state: started
+
+# Variables de entorno globales del crontab
+- name: Definir MAILTO vacío (no spam) y PATH extendido
+  ansible.builtin.cron:
+    name: MAILTO
+    env: yes
+    value: ""
+- name: Definir PATH para cron
+  ansible.builtin.cron:
+    name: PATH
+    env: yes
+    value: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Tarea robusta con lock para evitar solapes (utiliza flock)
+- name: Cron robusto con lock
+  ansible.builtin.cron:
+    name: "demo_robusto_cada_5"
+    user: root
+    minute: "*/5"
+    job: 'flock -n /tmp/cron_demo.lock -c "echo \"run $(date)\" >> /var/log/cron_demo_robusto.log"'
+
+# Validación: servicio activo
+- name: Validar estado del servicio cron
+  ansible.builtin.shell: |
+    echo -n "active="; systemctl is-active cron 2>/dev/null || echo "unknown"
+  register: cron_active
+  changed_when: false
+
+# Validación: las entradas están en el crontab
+- name: Obtener crontab de root
+  ansible.builtin.shell: crontab -l
+  register: crontab_root
+  changed_when: false
+
+# Validación: ejecutar manualmente la tarea (simulación inmediata)
+- name: Ejecutar una vez la tarea robusta para evidenciar
+  become: true
+  ansible.builtin.shell: bash -lc 'flock -n /tmp/cron_demo.lock -c "echo \"run-manual $(date)\" >> /var/log/cron_demo_robusto.log"'
+  register: manual_run
+  changed_when: true
+  failed_when: false
+
+- name: Leer últimas líneas del log robusto
+  ansible.builtin.shell: tail -n 5 /var/log/cron_demo_robusto.log 2>/dev/null || echo "(aún vacío)"
+  register: robust_tail
+  changed_when: false
+
+- name: Guardar evidencia Nivel 4 (robustez + validación)
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/auto_nivel4.txt
+    content: |
+      ### Evidencia Nivel 4 - Automatización robusta ###
+      Servicio cron activo: {{ cron_active.stdout }}
+
+      --- Entradas crontab (root) ---
+      {{ crontab_root.stdout }}
+
+      --- Log robusto (tail) ---
+      {{ robust_tail.stdout }}
+
+      Ejecutado manualmente: {{ manual_run.rc == 0 }}

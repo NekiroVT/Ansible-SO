@@ -1,0 +1,16 @@
+- name: KPIs de procesos (totales, zombis, top)
+  ansible.builtin.shell: |
+    echo '{"total":'$(ps -e --no-headers | wc -l) \
+         ',"zombies":'$(ps -eo stat --no-headers | grep -c "^Z") \
+         ',"top_cpu":"'$(ps -eo pid,comm,%cpu --sort=-%cpu | head -n 5 | tr -s " " | sed "s/\"/'/g")'"' \
+         ',"top_mem":"'$(ps -eo pid,comm,%mem --sort=-%mem | head -n 5 | tr -s " " | sed "s/\"/'/g")'"}'
+  register: kpis_json
+
+- name: Guardar resumen KPI
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/procesos_nivel4.txt
+    content: |
+      Fecha: {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+      Host:  {{ inventory_hostname }}
+      KPIs:  {{ kpis_json.stdout }}

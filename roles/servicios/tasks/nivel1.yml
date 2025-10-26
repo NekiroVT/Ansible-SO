@@ -1,0 +1,9 @@
+# Nivel 1: Ver todos los servicios y su estado
+- name: Obtener información de los servicios
+  ansible.builtin.service_facts:
+
+- name: Guardar lista de servicios
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/servicios_nivel1.json
+    content: "{{ ansible_facts.services | to_nice_json }}"

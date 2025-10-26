@@ -1,0 +1,69 @@
+# Nivel 2: Crear y montar un FS demo sin persistencia (loopback) - FIX
+
+- name: Crear imagen de 100MB (sparse)
+  become: true
+  ansible.builtin.shell: |
+    test -f /opt/demo_loop.img || fallocate -l 100M /opt/demo_loop.img || dd if=/dev/zero of=/opt/demo_loop.img bs=1M count=100
+  changed_when: false
+
+# 1) ¿Ya está asociada la imagen a algún loop?
+- name: Detectar loop device existente
+  become: true
+  ansible.builtin.shell: |
+    losetup -j /opt/demo_loop.img | awk -F: '{print $1}'
+  register: r_loop_existente
+  changed_when: false
+  failed_when: false
+
+# 2) Si no existe, asociar uno nuevo
+- name: Asociar loop device si no existe
+  become: true
+  ansible.builtin.shell: losetup -f --show /opt/demo_loop.img
+  register: r_loop_nuevo
+  when: r_loop_existente.stdout | trim == ""
+  changed_when: true
+
+# 3) Normalizar variable loopdev (el que había o el nuevo)
+- name: Definir loopdev a usar
+  ansible.builtin.set_fact:
+    loopdev: "{{ (r_loop_existente.stdout | trim) if (r_loop_existente.stdout | trim != '') else (r_loop_nuevo.stdout | trim) }}"
+
+# 4) Formatear sólo si aún no tiene FS
+- name: Detectar tipo de FS actual
+  become: true
+  ansible.builtin.shell: blkid -o value -s TYPE {{ loopdev }}
+  register: r_fstype
+  changed_when: false
+  failed_when: false
+
+- name: Formatear ext4 si está vacío
+  become: true
+  ansible.builtin.shell: mkfs.ext4 -F {{ loopdev }}
+  when: (r_fstype.stdout | trim) == ""
+  changed_when: true
+
+# 5) Crear punto de montaje y montar (no persistente)
+- name: Crear punto de montaje
+  become: true
+  ansible.builtin.file:
+    path: /mnt/demo_sin_logica
+    state: directory
+    mode: '0755'
+
+- name: Montar (no persistente)
+  become: true
+  ansible.builtin.mount:
+    path: /mnt/demo_sin_logica
+    src: "{{ loopdev }}"
+    fstype: ext4
+    state: mounted
+
+- name: Evidencia Nivel 2
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/alm_nivel2.txt
+    content: |
+      ### Evidencia Nivel 2 - Almacenamiento (sin lógica) ###
+      Loop: {{ loopdev }}
+      Montado en: /mnt/demo_sin_logica
+      Persistencia: NO (sin entrada en /etc/fstab)

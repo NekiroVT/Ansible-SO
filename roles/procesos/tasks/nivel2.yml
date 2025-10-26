@@ -1,0 +1,10 @@
+# Nivel 2: Detectar procesos con más uso de CPU
+- name: Ver procesos ordenados por CPU
+  ansible.builtin.shell: ps aux --sort=-%cpu | head -n {{ procesos_a_mostrar | default(10) }}
+  register: salida_cpu
+
+- name: Guardar listado por CPU
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/procesos_nivel2.txt
+    content: "{{ salida_cpu.stdout }}\n"

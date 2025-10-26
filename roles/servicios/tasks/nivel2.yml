@@ -1,0 +1,29 @@
+# Nivel 2: Verificar servicios básicos definidos en variables y guardar evidencia
+
+- name: Cargar variables del grupo laboratorio_academico
+  ansible.builtin.include_vars:
+    file: "../../group_vars/laboratorio_academico.yml"
+
+- name: Recopilar facts de servicios
+  ansible.builtin.service_facts:
+
+- name: Armar lista de estados
+  ansible.builtin.set_fact:
+    serv2_estado: >-
+      {{
+        (serv2_estado | default([]))
+        + [ {
+              'servicio': item.nombre,
+              'estado': (ansible_facts.services.get(item.nombre + '.service', {}).state
+                         | default('desconocido')),
+              'habilitado': (ansible_facts.services.get(item.nombre + '.service', {}).status
+                             | default('desconocido'))
+            } ]
+      }}
+  loop: "{{ servicios_basicos | default([]) }}"
+
+- name: Guardar evidencia nivel 2 (subset de servicios)
+  become: true
+  ansible.builtin.copy:
+    dest: /var/log/servicios_nivel2.json
+    content: "{{ (serv2_estado | default([])) | to_nice_json }}"
