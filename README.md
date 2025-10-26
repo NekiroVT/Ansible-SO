@@ -229,8 +229,8 @@ sudo find /var/log -name 'procesos_*' -delete
 ---
 
 # 👨‍💻 Autores
-Elias Jorge Alcca Condori 
-Cristhian Gabriel Aquino Hermosa
+- Elias Jorge Alcca Condori 
+- Cristhian Gabriel Aquino Hermosa
 
 Laboratorio Académico - Universidad Peruana Unión  
 📅 Octubre 2025
