@@ -35,7 +35,7 @@ ansible_so/
     │   └── tasks/nivel{1..4}.yml
     └── almacenamiento/
         └── tasks/nivel{1..4}.yml
-        
+```        
 ## 🧩 Requisitos Previos
 
 ### En el host (controlador Ansible)
