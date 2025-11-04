@@ -1,6 +1,0 @@
-# Variables para el laboratorio gamer
-servicios_basicos:
-  - { nombre: ssh,  estado: iniciado, habilitado: true }
-  - { nombre: cron, estado: iniciado, habilitado: true }
-
-procesos_a_mostrar: 15

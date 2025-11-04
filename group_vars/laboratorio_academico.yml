@@ -1,7 +1,0 @@
-# Variables para el laboratorio académico
-servicios_basicos:
-  - { nombre: ssh,     estado: iniciado, habilitado: true }
-  - { nombre: cron,    estado: iniciado, habilitado: true }
-  - { nombre: apache2, estado: detenido, habilitado: false }
-
-procesos_a_mostrar: 10
