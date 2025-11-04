@@ -1,0 +1,28 @@
+# Variables para el laboratorio académico
+servicios_basicos:
+  - { nombre: ssh,     estado: iniciado, habilitado: true }
+  - { nombre: cron,    estado: iniciado, habilitado: true }
+  - { nombre: apache2, estado: detenido, habilitado: false }
+
+procesos_a_mostrar: 10
+
+# Seguridad
+firewall_allowed_ports: [22, 80, 443]
+firewall_allowed_subnets: ["192.168.1.0/24"]
+ssh_port: 22
+permit_root_login: "no"
+ssh_password_auth: "no"
+
+# SQL Server (ejemplo)
+sql_server_firewall_ports: [1433]
+sql_server_instance_name: "MSSQLSERVER"
+
+sql_server_executables:
+  "2017":
+    sqlservr: "C:\\Program Files\\Microsoft SQL Server\\MSSQL14.MSSQLSERVER\\MSSQL\\Binn\\sqlservr.exe"
+  "2019":
+    sqlservr: "C:\\Program Files\\Microsoft SQL Server\\MSSQL15.MSSQLSERVER\\MSSQL\\Binn\\sqlservr.exe"
+  "2022":
+    sqlservr: "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.MSSQLSERVER\\MSSQL\\Binn\\sqlservr.exe"
+
+sql_server_version: 2019

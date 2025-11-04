@@ -1,0 +1,164 @@
+---
+# Detectar SO
+- name: Detectar sistema operativo
+  ansible.builtin.set_fact:
+    _is_windows: "{{ ansible_os_family == 'Windows' }}"
+    _is_debian: "{{ ansible_os_family == 'Debian' }}"
+    _is_rhel: "{{ ansible_os_family == 'RedHat' }}"
+
+# Normalizar variables a LISTAS aunque vengan como cadenas (por -e)
+- name: Normalizar variables de firewall a listas
+  ansible.builtin.set_fact:
+    _ports_raw: "{{ firewall_allowed_ports | default([]) }}"
+    _subnets_raw: "{{ firewall_allowed_subnets | default([]) }}"
+
+- name: Asegurar tipo lista en puertos
+  ansible.builtin.set_fact:
+    _ports: >-
+      {{
+        (_ports_raw is string)
+        | ternary((_ports_raw | from_yaml), _ports_raw)
+      }}
+
+- name: Asegurar tipo lista en subredes
+  ansible.builtin.set_fact:
+    _subnets: >-
+      {{
+        (_subnets_raw is string)
+        | ternary((_subnets_raw | from_yaml), _subnets_raw)
+      }}
+
+########################
+#        LINUX         #
+########################
+# --- firewalld (RHEL/Fedora/Bazzite) ---
+- name: Instalar firewalld (RHEL/Fedora/Bazzite)
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+  when: not _is_windows and _is_rhel
+  become: true
+
+- name: Habilitar y arrancar firewalld
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  when: not _is_windows and _is_rhel
+  become: true
+
+- name: Abrir puertos (firewalld)
+  ansible.posix.firewalld:
+    port: "{{ item }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop: "{{ _ports | default([]) }}"
+  when: not _is_windows and _is_rhel and (_ports | length > 0)
+  become: true
+
+- name: Permitir subredes (firewalld rich rules)
+  ansible.posix.firewalld:
+    rich_rule: 'rule family="ipv4" source address="{{ item }}" accept'
+    permanent: true
+    state: enabled
+    immediate: true
+  loop: "{{ _subnets | default([]) }}"
+  when: not _is_windows and _is_rhel and (_subnets | length > 0)
+  become: true
+
+# --- UFW (Debian/Ubuntu) ---
+- name: Instalar ufw (Debian/Ubuntu)
+  ansible.builtin.package:
+    name: ufw
+    state: present
+  when: not _is_windows and _is_debian
+  become: true
+
+- name: Habilitar UFW y política por defecto (deny incoming)
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    policy: deny
+  when: not _is_windows and _is_debian
+  become: true
+
+# Limpieza de reglas “Anywhere” que pudimos crear a mano
+- name: Quitar allows globales (80/443 Anywhere) si existen
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+    delete: true
+  loop: [80, 443]
+  when: not _is_windows and _is_debian
+  ignore_errors: true
+  become: true
+
+# --- Rol blindado: calcula pares puerto-subred o usa Anywhere como fallback ---
+- name: UFW | Construir matriz de pares puerto-subred (o Anywhere)
+  ansible.builtin.set_fact:
+    _ufw_pairs: >-
+      {{
+        (_subnets | default([]) | length > 0)
+        | ternary(
+            (_ports | default([])) | product((_subnets | default([]))) | list,
+            (_ports | default([])) | product(['Anywhere']) | list
+          )
+      }}
+  when: not _is_windows and _is_debian
+
+- name: UFW | Permitir puertos según pares calculados
+  community.general.ufw:
+    rule: allow
+    port: "{{ item.0 }}"
+    proto: tcp
+    from_ip: "{{ (item.1 != 'Anywhere') | ternary(item.1, omit) }}"
+  loop: "{{ _ufw_pairs }}"
+  when: not _is_windows and _is_debian and (_ufw_pairs | length) > 0
+  become: true
+
+########################
+#       WINDOWS        #
+########################
+- name: Habilitar firewall (Domain/Private/Public)
+  community.windows.win_firewall:
+    state: enabled
+  when: _is_windows
+
+- name: Permitir puertos inbound TCP
+  community.windows.win_firewall_rule:
+    name: "Inbound TCP {{ item }}"
+    localport: "{{ item }}"
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true
+  loop: "{{ _ports | default([]) }}"
+  when: _is_windows and (_ports | length) > 0
+
+# Reglas SQL Server (ejemplo Ing. Paulo)
+- name: Crear reglas de firewall para puertos SQL Server
+  community.windows.win_firewall_rule:
+    name: "SQL Server - Puerto {{ item }}"
+    localport: "{{ item }}"
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: true
+    description: "Regla creada automáticamente por Ansible para SQL Server"
+  loop: "{{ (sql_server_firewall_ports | default([])) }}"
+  when: _is_windows and (sql_server_firewall_ports | default([]) | length) > 0
+
+- name: Crear regla de firewall para aplicación SQL Server
+  community.windows.win_firewall_rule:
+    name: "SQL Server Database Engine - {{ sql_server_instance_name }}"
+    program: "{{ sql_server_executables[sql_server_version | string].sqlservr }}"
+    action: allow
+    direction: in
+    state: present
+    enabled: true
+    description: "Regla para el motor de SQL Server {{ sql_server_version }} - Instancia {{ sql_server_instance_name }}"
+  when: _is_windows and (sql_server_executables is defined) and (sql_server_version is defined)

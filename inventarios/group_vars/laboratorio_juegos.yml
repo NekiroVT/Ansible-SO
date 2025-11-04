@@ -1,0 +1,15 @@
+# Variables para el laboratorio gamer
+servicios_basicos:
+  - { nombre: ssh,  estado: iniciado, habilitado: true }
+  - { nombre: cron, estado: iniciado, habilitado: true }
+
+procesos_a_mostrar: 15
+
+# Seguridad (Game Center)
+firewall_allowed_ports: [22, 27015, 27016, 7777, 25565]
+firewall_allowed_subnets:
+  - "192.168.20.0/24"
+  - "10.10.0.0/16"
+ssh_port: 22
+permit_root_login: "no"
+ssh_password_auth: "no"

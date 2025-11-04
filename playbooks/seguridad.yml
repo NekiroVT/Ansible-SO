@@ -1,0 +1,74 @@
+---
+# ========= PLAY 1: LAB académico =========
+- name: Seguridad - LAB académico
+  hosts: laboratorio_academico
+  gather_facts: true
+  become: yes
+  strategy: linear
+  serial: 1   # opcional: aplica de uno en uno
+
+  pre_tasks:
+    - name: Safety – garantizar SSH mientras se aplican reglas
+      when: ansible_os_family == 'Debian'
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+      become: true
+
+  roles:
+    - seguridad
+
+  post_tasks:
+    - name: Quitar 22/tcp Anywhere si ya hay subredes definidas
+      when:
+        - ansible_os_family == 'Debian'
+        - firewall_allowed_subnets is defined
+        - (firewall_allowed_subnets | length) > 0
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        delete: true
+      become: true
+
+    - name: Mensaje final
+      ansible.builtin.debug:
+        msg: "✅ Firewall aplicado correctamente en {{ inventory_hostname }}"
+
+# ========= PLAY 2: Game Center =========
+- name: Seguridad - Game Center
+  hosts: laboratorio_juegos
+  gather_facts: true
+  become: yes
+  strategy: linear
+  serial: 1
+
+  pre_tasks:
+    - name: Safety – garantizar SSH mientras se aplican reglas
+      when: ansible_os_family == 'Debian'
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+      become: true
+
+  roles:
+    - seguridad
+
+  post_tasks:
+    - name: Quitar 22/tcp Anywhere si ya hay subredes definidas
+      when:
+        - ansible_os_family == 'Debian'
+        - firewall_allowed_subnets is defined
+        - (firewall_allowed_subnets | length) > 0
+      community.general.ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+        delete: true
+      become: true
+
+    - name: Mensaje final
+      ansible.builtin.debug:
+        msg: "🎮 Firewall (Game Center) aplicado en {{ inventory_hostname }}"
